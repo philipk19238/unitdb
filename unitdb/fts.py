@@ -16,8 +16,8 @@ class TextDocument:
     """Wrapper around a list of string tokens."""
 
     def __init__(self, ref_id: int, tokens: List[str]) -> None:
-        self._ref_id = ref_id
-        self._tokens = tokens
+        self._ref_id: int = ref_id
+        self._tokens: List[str] = tokens
 
     def __len__(self) -> int:
         return len(self._tokens)
@@ -64,13 +64,15 @@ class Corpus:
 
 
 class Index(abc.ABC, Generic[KeyT, ValueT]):
+    """Base class for creating an index from a corpus."""
+
     def __init__(self, corpus: Corpus) -> None:
         self._corpus: Corpus = corpus
         self._index: Dict[KeyT, ValueT] = self.build_index()
 
     @abc.abstractmethod
     def build_index(self) -> Dict[KeyT, ValueT]:
-        pass
+        ...
 
     @property
     def index(self) -> Dict[KeyT, ValueT]:
@@ -112,11 +114,13 @@ class InvertedIndex(Index[int, Dict[str, int]]):
 
 
 class FullTextSearch:
+    """Class for performing full text search on a corpus."""
+
     def __init__(self, corpus: Corpus, config: BM25Config) -> None:
-        self._corpus = corpus
-        self._config = config
-        self._idf = IDFIndex(corpus)
-        self._inv = InvertedIndex(corpus)
+        self._corpus: Corpus = corpus
+        self._config: BM25Config = config
+        self._idf: IDFIndex = IDFIndex(corpus)
+        self._inv: InvertedIndex = InvertedIndex(corpus)
 
     def search(self, query: TextDocument) -> List[FullTextSearchResult]:
         score: np.ndarray = np.zeros(len(self._corpus))
