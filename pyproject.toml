@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "unitdb"
+version = "0.1.0"
+description = ""
+authors = ["Philip Kung <pkung67@utexas.edu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numba = "^0.57.1"
+pydantic = "^2.3.0"
+pandas = "^2.1.0"
+nltk = "^3.8.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+mypy = "^1.4.1"
+isort = "^5.12.0"
+flake8 = "^6.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
