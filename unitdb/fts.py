@@ -12,7 +12,7 @@ KeyT = TypeVar("KeyT")
 ValueT = TypeVar("ValueT")
 
 
-class Document:
+class TextDocument:
     """Wrapper around a list of string tokens."""
 
     def __init__(self, ref_id: int, tokens: List[str]) -> None:
@@ -41,17 +41,17 @@ class Document:
 class Corpus:
     """Class that wraps a list of documents."""
 
-    def __init__(self, documents: List[Document]) -> None:
-        self._documents: List[Document] = documents
+    def __init__(self, documents: List[TextDocument]) -> None:
+        self._documents: List[TextDocument] = documents
 
     def __len__(self) -> int:
         return len(self._documents)
 
-    def __iter__(self) -> Iterator[Document]:
+    def __iter__(self) -> Iterator[TextDocument]:
         return iter(self._documents)
 
     @property
-    def documents(self) -> List[Document]:
+    def documents(self) -> List[TextDocument]:
         return self._documents
 
     @cached_property
@@ -118,7 +118,7 @@ class FullTextSearch:
         self._idf = IDFIndex(corpus)
         self._inv = InvertedIndex(corpus)
 
-    def search(self, query: Document) -> List[FullTextSearchResult]:
+    def search(self, query: TextDocument) -> List[FullTextSearchResult]:
         score: np.ndarray = np.zeros(len(self._corpus))
         q_freq: np.ndarray = np.array(
             [self._inv.get_frequency(q, doc.ref_id) for q in query.tokens for doc in self._corpus]
