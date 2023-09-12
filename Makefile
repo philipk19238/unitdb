@@ -1,4 +1,4 @@
-.PHONY: format lint
+.PHONY: format check-format lint
 
 format:
 	poetry run isort . --settings-path isort.cfg 
