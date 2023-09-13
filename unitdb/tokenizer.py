@@ -1,9 +1,10 @@
-import re
 import string
-from re import Pattern
 from typing import List, Set
 
-from nltk.stem.porter import PorterStemmer
+import nltk
+from nltk.stem import WordNetLemmatizer
+
+nltk.download("wordnet")
 
 
 class Tokenizer:
@@ -43,9 +44,7 @@ class Tokenizer:
         "with",
     }
 
-    ALPHANUM: Pattern[str] = re.compile(r"^\d*[a-z][\-.0-9:_a-z]{1,}$")
-
-    STEMMER: PorterStemmer = PorterStemmer()
+    LEMMATIZER: WordNetLemmatizer = WordNetLemmatizer()
 
     @classmethod
     def tokenize(cls, text: str) -> List[str]:
@@ -66,6 +65,5 @@ class Tokenizer:
         text = text.lower()
         tokens: List[str] = [token.strip(string.punctuation) for token in text.split()]
         tokens = [x for x in tokens if x not in cls.STOP_WORDS]
-        tokens = [token for token in tokens if re.match(cls.ALPHANUM, token)]
-        tokens = [cls.STEMMER.stem(x) for x in tokens]
+        tokens = [cls.LEMMATIZER.lemmatize(x) for x in tokens]
         return tokens

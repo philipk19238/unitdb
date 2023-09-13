@@ -225,7 +225,7 @@ class FullTextSearch(Search[TextCorpus, List[str], FullTextSearchResult]):
 
     def search(self, query: List[str], ref_ids: Optional[List[int]] = None) -> List[FullTextSearchResult]:
         """
-        Performs a full-text search on the corpus using the BM25 algorithm.
+        Performs a full-text search on the corpus using the BM25 Lucene algorithm.
 
         The BM25 algorithm calculates the relevance of each document in the corpus to the query.
         The results are sorted by relevance in descending order.
@@ -252,16 +252,16 @@ class FullTextSearch(Search[TextCorpus, List[str], FullTextSearchResult]):
             except AssertionError:
                 raise ValueError("All reference IDs must be less than the length of the corpus.")
             doc_lengths = self._corpus.doc_lengths[ref_ids]
-
         score: np.ndarray = np.zeros(len(ref_ids))
-        q_freq: np.ndarray = np.array([self._inv.get_token_frequency(q, ref_id) for q in query for ref_id in ref_ids])
-        ctd: np.ndarray = q_freq / (1 - self._config.b + self._config.b * doc_lengths / self._corpus.avg_dl)
-        score += (
-            np.array([self._idf.get_idf(q) for q in query])
-            * (self._config.k1 + 1)
-            * (ctd + self._config.delta)
-            / (self._config.k1 + ctd + self._config.delta)
-        )
+        for q in query:
+            q_freq: np.ndarray = np.array([self._inv.get_token_frequency(q, ref_id) for ref_id in ref_ids])
+            ctd: np.ndarray = q_freq / (1 - self._config.b + self._config.b * doc_lengths / self._corpus.avg_dl)
+            score += (
+                self._idf.get_idf(q)
+                * (self._config.k1 + 1)
+                * (ctd + self._config.delta)
+                / (self._config.k1 + ctd + self._config.delta)
+            )
         results: List[FullTextSearchResult] = [
             FullTextSearchResult(ref_id=ref_id, bm25=doc_score) for ref_id, doc_score in zip(ref_ids, score)
         ]
