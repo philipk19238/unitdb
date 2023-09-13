@@ -1,4 +1,24 @@
+from enum import Enum
 from typing import NamedTuple
+
+
+class DistanceMetric(str, Enum):
+    """
+    Enum class for defining the distance metrics used in similarity search.
+    """
+
+    COSINE = "cosine"  # Cosine similarity metric
+    DOT_PRODUCT = "dot_product"  # Dot product similarity metric
+    EUCLIDEAN = "euclidean"  # Euclidean distance metric
+
+
+class SimilaritySearchConfig(NamedTuple):
+    """
+    NamedTuple for holding the configuration of a similarity search.
+    It includes the distance metric to be used in the search.
+    """
+
+    distance_metric: DistanceMetric  # The distance metric for the similarity search
 
 
 class BM25Config(NamedTuple):
@@ -20,7 +40,7 @@ class FullTextSearchResult(NamedTuple):
     bm25: float  # The BM25 score of the document.
 
 
-class SemanticSearchResult(NamedTuple):
+class SimilaritySearchResult(NamedTuple):
     """
     NamedTuple to hold the result of a semantic search.
     """

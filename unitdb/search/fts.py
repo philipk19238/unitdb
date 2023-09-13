@@ -2,17 +2,18 @@ import abc
 import math
 from collections import defaultdict
 from functools import cached_property
-from typing import Dict, Generic, Iterator, List, Set, TypeVar
+from typing import Dict, Generic, Iterator, List, Optional, Set, TypeVar
 
 import numpy as np
 
+from unitdb.search.base import Corpus, Document, Search
 from unitdb.structs import BM25Config, FullTextSearchResult
 
 KeyT = TypeVar("KeyT")
 ValueT = TypeVar("ValueT")
 
 
-class TextDocument:
+class TextDocument(Document):
     """
     Class to represent a text document.
     Each document is represented as a list of string tokens.
@@ -26,7 +27,7 @@ class TextDocument:
             ref_id (int): The reference ID of the document.
             tokens (List[str]): The list of string tokens representing the document.
         """
-        self._ref_id: int = ref_id
+        super().__init__(ref_id)
         self._tokens: List[str] = tokens
 
     def __len__(self) -> int:
@@ -46,16 +47,6 @@ class TextDocument:
             Iterator[str]: An iterator over the tokens in the document.
         """
         return iter(self._tokens)
-
-    @property
-    def ref_id(self) -> int:
-        """
-        Get the reference ID of the document.
-
-        Returns:
-            int: The reference ID of the document.
-        """
-        return self._ref_id
 
     @property
     def tokens(self) -> List[str]:
@@ -78,48 +69,11 @@ class TextDocument:
         return set(self._tokens)
 
 
-class Corpus:
+class TextCorpus(Corpus[TextDocument]):
     """
     Class to represent a corpus of documents.
     Each corpus is represented as a list of TextDocument instances.
     """
-
-    def __init__(self, documents: List[TextDocument]) -> None:
-        """
-        Initialize a Corpus instance.
-
-        Args:
-            documents (List[TextDocument]): The list of documents in the corpus.
-        """
-        self._documents: List[TextDocument] = documents
-
-    def __len__(self) -> int:
-        """
-        Get the number of documents in the corpus.
-
-        Returns:
-            int: The number of documents in the corpus.
-        """
-        return len(self._documents)
-
-    def __iter__(self) -> Iterator[TextDocument]:
-        """
-        Get an iterator over the documents in the corpus.
-
-        Returns:
-            Iterator[TextDocument]: An iterator over the documents in the corpus.
-        """
-        return iter(self._documents)
-
-    @property
-    def documents(self) -> List[TextDocument]:
-        """
-        Get the documents in the corpus.
-
-        Returns:
-            List[TextDocument]: The documents in the corpus.
-        """
-        return self._documents
 
     @cached_property
     def doc_lengths(self) -> np.ndarray:
@@ -148,14 +102,14 @@ class Index(abc.ABC, Generic[KeyT, ValueT]):
     Each index is represented as a dictionary mapping keys to values.
     """
 
-    def __init__(self, corpus: Corpus) -> None:
+    def __init__(self, corpus: TextCorpus) -> None:
         """
         Initialize an Index instance.
 
         Args:
             corpus (Corpus): The corpus to index.
         """
-        self._corpus: Corpus = corpus
+        self._corpus: TextCorpus = corpus
         self._index: Dict[KeyT, ValueT] = self.build_index()
 
     @abc.abstractmethod
@@ -236,7 +190,7 @@ class InvertedIndex(Index[int, Dict[str, int]]):
                 inv_index[document.ref_id][token] += 1
         return inv_index
 
-    def get_frequency(self, token: str, ref_id: int) -> int:
+    def get_token_frequency(self, token: str, ref_id: int) -> int:
         """
         Get the frequency of a token in a document.
 
@@ -250,13 +204,13 @@ class InvertedIndex(Index[int, Dict[str, int]]):
         return self._index[ref_id].get(token, 0)
 
 
-class FullTextSearch:
+class FullTextSearch(Search[TextCorpus, List[str], FullTextSearchResult]):
     """
     Class for performing full text search on a corpus.
     Each search is performed using the BM25 algorithm.
     """
 
-    def __init__(self, corpus: Corpus, config: BM25Config) -> None:
+    def __init__(self, corpus: TextCorpus, config: BM25Config) -> None:
         """
         Initialize a FullTextSearch instance.
 
@@ -264,35 +218,51 @@ class FullTextSearch:
             corpus (Corpus): The corpus to search in.
             config (BM25Config): The configuration parameters for the BM25 algorithm.
         """
-        self._corpus: Corpus = corpus
+        super().__init__(corpus)
         self._config: BM25Config = config
         self._idf: IDFIndex = IDFIndex(corpus)
         self._inv: InvertedIndex = InvertedIndex(corpus)
 
-    def search(self, query: TextDocument) -> List[FullTextSearchResult]:
+    def search(self, query: List[str], ref_ids: Optional[List[int]] = None) -> List[FullTextSearchResult]:
         """
-        Perform a full text search on the corpus using the BM25 algorithm.
+        Performs a full-text search on the corpus using the BM25 algorithm.
+
+        The BM25 algorithm calculates the relevance of each document in the corpus to the query.
+        The results are sorted by relevance in descending order.
 
         Args:
-            query (TextDocument): The query to search for.
+            query (List[str]): The list of tokens to search for in the corpus.
+            ref_ids (Optional[List[int]]): The list of reference IDs of the documents to search in.
+                                            If None, all documents in the corpus are searched.
 
         Returns:
-            List[FullTextSearchResult]: The results of the search, sorted by BM25 score in descending order.
+            List[FullTextSearchResult]: A list of FullTextSearchResult objects, each representing a document
+                                        and its relevance to the query. The list is sorted by relevance in
+                                        descending order.
+
+        Raises:
+            ValueError: If any reference ID in ref_ids is not less than the length of the corpus.
         """
-        score: np.ndarray = np.zeros(len(self._corpus))
-        q_freq: np.ndarray = np.array(
-            [self._inv.get_frequency(q, doc.ref_id) for q in query.tokens for doc in self._corpus]
-        )
-        ctd: np.ndarray = q_freq / (
-            1 - self._config.b + self._config.b * self._corpus.doc_lengths / self._corpus.avg_dl
-        )
+        if ref_ids is None:
+            ref_ids = list(range(len(self._corpus)))
+            doc_lengths = self._corpus.doc_lengths
+        else:
+            try:
+                assert all(ref_id < len(self._corpus) for ref_id in ref_ids)
+            except AssertionError:
+                raise ValueError("All reference IDs must be less than the length of the corpus.")
+            doc_lengths = self._corpus.doc_lengths[ref_ids]
+
+        score: np.ndarray = np.zeros(len(ref_ids))
+        q_freq: np.ndarray = np.array([self._inv.get_token_frequency(q, ref_id) for q in query for ref_id in ref_ids])
+        ctd: np.ndarray = q_freq / (1 - self._config.b + self._config.b * doc_lengths / self._corpus.avg_dl)
         score += (
-            (np.array([self._idf.get_idf(q) for q in query.tokens]) or 0)
+            np.array([self._idf.get_idf(q) for q in query])
             * (self._config.k1 + 1)
             * (ctd + self._config.delta)
             / (self._config.k1 + ctd + self._config.delta)
         )
         results: List[FullTextSearchResult] = [
-            FullTextSearchResult(ref_id=doc.ref_id, bm25=doc_score) for doc, doc_score in zip(self._corpus, score)
+            FullTextSearchResult(ref_id=ref_id, bm25=doc_score) for ref_id, doc_score in zip(ref_ids, score)
         ]
         return sorted(results, key=lambda x: x.bm25, reverse=True)
