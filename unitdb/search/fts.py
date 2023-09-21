@@ -5,9 +5,11 @@ from functools import cached_property
 from typing import Dict, Generic, Iterator, List, Optional, Set, TypeVar
 
 import numpy as np
+import polars as pl
 
 from unitdb.search.base import Corpus, Document, Search
 from unitdb.structs import BM25Config, FullTextSearchResult
+from unitdb.tokenizer import Tokenizer
 
 KeyT = TypeVar("KeyT")
 ValueT = TypeVar("ValueT")
@@ -94,6 +96,37 @@ class TextCorpus(Corpus[TextDocument]):
             float: The average document length in the corpus.
         """
         return np.sum(self.doc_lengths) / len(self._documents)
+
+    @classmethod
+    def from_dataframe(self, df: pl.DataFrame, columns_to_index: Optional[List[str]]) -> "TextCorpus":
+        """
+        Class method to create an instance of TextCorpus from a DataFrame.
+
+        Args:
+            df (pl.DataFrame): The DataFrame containing the text documents.
+            columns_to_index (Optional[List[str]]): The list of column names to index.
+                If None, all columns in the DataFrame are indexed.
+                If "ref_id" is not in the list, it is automatically appended to the list.
+
+        Returns:
+            TextCorpus: An instance of TextCorpus containing the text documents from the DataFrame.
+        """
+        documents: List[TextDocument] = []
+        if columns_to_index is None:
+            columns_to_index = df.columns
+        if "ref_id" not in columns_to_index:
+            columns_to_index.append("ref_id")
+        for row in df[columns_to_index].iter_rows(named=True):
+            ref_id: int = row.pop("ref_id")
+            token_string: str = ""
+            for k, v in row.items():
+                v = str(v)
+                if not token_string:
+                    token_string += k + " " + v
+                else:
+                    token_string += " " + k + " " + v
+            documents.append(TextDocument(ref_id, Tokenizer.tokenize(token_string)))
+        return TextCorpus(documents)
 
 
 class Index(abc.ABC, Generic[KeyT, ValueT]):

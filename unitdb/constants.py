@@ -1,0 +1,7 @@
+VECTOR_COLUMN_NAME = "vector"
+DEFAULT_K1: float = 1.5
+DEFAULT_B: float = 0.75
+DEFAULT_DELTA: float = 0.5
+DEFAULT_DISTANCE_METRIC: str = "COSINE"
+DEFAULT_ALPHA: float = 0.8
+DEFAULT_CSV_PATH: str = "unitdb.csv"

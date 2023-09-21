@@ -1,7 +1,9 @@
+import ast
 from functools import cached_property
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
+import polars as pl
 
 from unitdb.search.base import Corpus, Document, Search
 from unitdb.structs import (
@@ -36,6 +38,27 @@ class EmbeddingCorpus(Corpus[EmbeddingDocument]):
     def vectors(self) -> np.ndarray:
         return np.array([doc.vector for doc in self.documents])
 
+    @classmethod
+    def from_dataframe(cls, df: pl.DataFrame, vector_column_name: str) -> "EmbeddingCorpus":
+        """
+        Class method to create an instance of EmbeddingCorpus from a DataFrame.
+
+        Args:
+            df (pl.DataFrame): The DataFrame containing the embedding documents.
+            vector_column_name (str): The name of the column in the DataFrame that contains the vectors.
+
+        Returns:
+            EmbeddingCorpus: An instance of the EmbeddingCorpus class.
+        """
+        documents: List[EmbeddingDocument] = []
+        for row in df.iter_rows(named=True):
+            ref_id: int = row.pop("ref_id")
+            vector: Union[List[float], str] = row.pop(vector_column_name)
+            if isinstance(vector, str):
+                vector = list(map(float, ast.literal_eval(vector)))
+            documents.append(EmbeddingDocument(ref_id, vector))
+        return EmbeddingCorpus(documents)
+
 
 class SimilaritySearch(Search[EmbeddingCorpus, List[float], SimilaritySearchResult]):
     def __init__(self, corpus: EmbeddingCorpus, config: SimilaritySearchConfig) -> None:
@@ -59,7 +82,6 @@ class SimilaritySearch(Search[EmbeddingCorpus, List[float], SimilaritySearchResu
             ref_ids = list(range(len(self._corpus)))
         query_vector: np.ndarray = np.array(query)
         corpus_vectors: np.ndarray = self._corpus.vectors[ref_ids]
-
         distances: np.ndarray
         if self._config.distance_metric == DistanceMetric.COSINE:
             distances = -np.linalg.norm(corpus_vectors - query_vector, axis=1)

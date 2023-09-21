@@ -12,6 +12,16 @@ class DistanceMetric(str, Enum):
     EUCLIDEAN = "euclidean"  # Euclidean distance metric
 
 
+class SearchType(str, Enum):
+    """
+    Enum class for defining the type of search.
+    """
+
+    KEYWORD = "keyword"
+    SEMANTIC = "semantic"
+    HYBRID = "hybrid"
+
+
 class SimilaritySearchConfig(NamedTuple):
     """
     NamedTuple for holding the configuration of a similarity search.
