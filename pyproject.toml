@@ -6,17 +6,19 @@ authors = ["Philip Kung <pkung67@utexas.edu>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-numba = "^0.57.1"
+python = ">=3.9,<3.13"
 pydantic = "^2.3.0"
-pandas = "^2.1.0"
 nltk = "^3.8.1"
+polars = "^0.19.3"
+openai = "^0.28.0"
+numpy = "^1.26.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 mypy = "^1.4.1"
 isort = "^5.12.0"
 flake8 = "^6.0.0"
+ipykernel = "^6.25.2"
 
 [build-system]
 requires = ["poetry-core"]
